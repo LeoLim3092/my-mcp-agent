@@ -10,3 +10,6 @@ wheels/
 .venv
 .venv/
 __pycache__/
+
+# Private runtime accounting database and SQLite sidecars
+studio_ledger.db*

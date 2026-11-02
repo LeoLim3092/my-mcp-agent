@@ -82,3 +82,28 @@ session. Real MCP tool schema generation was also checked separately during deve
 - [ ] Phase 3: verify shared memory includes only explicitly approved documents and never exposes credentials or follows symlinks.
 - [ ] Phase 4: test the real desktop/client integration and server/dispatcher authorization for every role. Editing prompts or YAML must not grant extra tools.
 - [ ] Phase 4: run an end-to-end task with budget preflight, authorized tools, usage recording, failures, and restart recovery.
+
+## Phase 2.2 — Hardware telemetry follow-up
+
+- [ ] Read `studio://telemetry/hardware` through MCP Inspector; verify JSON MIME type, fresh timestamps, CPU percentages, RAM bytes, and disk bytes.
+- [ ] Compare system disk/RAM readings with local OS tools; compare Windows C: disk space when `/mnt/c` is mounted under WSL.
+- [ ] Verify unavailable Windows mounts and disk permission errors are reported as unavailable rather than zero capacity.
+
+Automated hardware tests: `.venv/bin/python -m unittest discover -s tests -p 'test_telemetry.py' -v`. Four tests cover deterministic sampling, missing/present Windows mounts, disk errors, JSON serialization, and registration. Live sampling was also checked during implementation.
+
+## Phase 2.3 — Usage ledger follow-up
+
+- [ ] In MCP Inspector, log fake usage against a disposable ledger and read `studio://telemetry/budget`; confirm exact decimal strings and token totals.
+- [ ] Through MCP, test invalid token/cost inputs and over-budget errors. Verify over-budget usage persists and never retry the same recorded call.
+- [ ] Add idempotency keys before introducing automatic logging retries; current repeated calls create repeated records.
+- [ ] Verify database lock timeout, disk-full/unwritable errors, recovery, backup permissions, and migration strategy before storing important usage history.
+- [ ] Enforce trusted usage reporting and pre-call budget reservations in the orchestrator; the current post-task logger cannot stop costs already incurred or verify caller-supplied cost.
+- [ ] Confirm UTC budget days are the intended policy; add a configurable timezone only if local-day reporting is required.
+
+Budget tests: `.venv/bin/python -m unittest discover -s tests -p 'test_budget.py' -v`. Six tests cover persisted/exact totals, limit boundaries, invalid inputs, UTC rollover, concurrent writes, JSON resource output, and registration. Runtime `studio_ledger.db*` files are excluded from Git.
+
+## Phase 2.4 — Milestone status
+
+- [x] Automated MCP dispatch test in `tests/test_phase2_milestone.py` passes using live hardware and a temporary ledger. Verified outside the restricted sandbox after its thread dispatch timed out inside it.
+- [x] Document test commands, expected results, and manual Inspector steps in [docs/phase2-validation.md](docs/phase2-validation.md).
+- [ ] Complete and record manual Resources-tab checks for both telemetry URIs using that guide; then update the Phase 2 milestone checkbox.

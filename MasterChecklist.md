@@ -13,6 +13,7 @@ bui
   - [✓] `server.py` [INTEGRITY] (Main `MCPServer` entry point, replacing `hello_mcp.py` [INTEGRITY])
   - [✓] `config.py` [CRITICAL INTEGRITY] (Workspace paths, budget caps, size limits, and protection rules; no directory creation on import)
   - [✓] `security.py` [CRITICAL INTEGRITY] (`validate_path()` and `SandboxViolationError`; enforces file-access policy)
+  - [x] `ledger.py` [CRITICAL INTEGRITY] [PRIVACY] (SQLite initialization, exact-decimal usage accounting, and UTC daily summaries)
   - [✓] `tools/` [INTEGRITY] directory (`__init__.py` [INTEGRITY], `filesystem.py` [HIGH PRIVILEGE] [PRIVACY], `git_ops.py` [HIGH PRIVILEGE] [PRIVACY], `qa_runner.py` [CRITICAL PRIVILEGE], `external.py` [CRITICAL PRIVILEGE], `budget.py` [INTEGRITY])
   - [✓] `resources/` [INTEGRITY] [PRIVACY] directory (`__init__.py` [INTEGRITY], `telemetry.py` [INTEGRITY] [PRIVACY], `memory.py` [PRIVACY])
 - [✓] **Verify entry point:** Run `uv run mcp dev src/my_mcp_agent/server.py` and confirm it loads in the MCP Inspector (`http://localhost:6274`).
@@ -53,16 +54,21 @@ bui
 ## Phase 2: System & Resource Telemetry (The Guardrails)
 *Goal: Track hardware health and API token budgets deterministically in Python.*
 
-- [ ] **1. Install Telemetry Dependencies**
-  - [ ] Run `uv add psutil`.
-- [ ] **2. Expose Hardware Telemetry (`resources/telemetry.py` [INTEGRITY] [PRIVACY])**
-  - [ ] Implement `@mcp.resource("studio://telemetry/hardware")`: Return JSON with free WSL/Windows disk space (`shutil.disk_usage`), available RAM, and CPU load (`psutil`).
-- [ ] **3. Build the Token & Cost Ledger (`resources/telemetry.py` [INTEGRITY] [PRIVACY] & `tools/budget.py` [INTEGRITY])**
-  - [ ] Initialize a local SQLite database (`studio_ledger.db` [INTEGRITY] [PRIVACY]) using `sqlite3`.
-  - [ ] Create table `token_logs (id, timestamp, agent_role, model, input_tokens, output_tokens, cost_usd)`.
-  - [ ] Implement `@mcp.resource("studio://telemetry/budget")`: Return today's cumulative spend vs. `DAILY_BUDGET_USD`.
-  - [ ] Implement `@mcp.tool() log_task_usage(...)`: Logs token usage after each agent run and triggers a circuit-breaker error if the daily budget is exceeded.
+- [x] **1. Install Telemetry Dependencies**
+  - [x] Run `uv add psutil` (installed 7.2.2; import and CPU/RAM queries verified).
+- [x] **2. Expose Hardware Telemetry (`resources/telemetry.py` [INTEGRITY] [PRIVACY])**
+  - [x] Implement `@mcp.resource("studio://telemetry/hardware")`: Return JSON with free WSL/Windows disk space (`shutil.disk_usage`), available RAM, and CPU load (`psutil`).
+- [x] **3. Build the Token & Cost Ledger (`resources/telemetry.py` [INTEGRITY] [PRIVACY] & `tools/budget.py` [INTEGRITY])**
+  - [x] Initialize a local SQLite database (`studio_ledger.db` [INTEGRITY] [PRIVACY]) using `sqlite3` in `ledger.py` [CRITICAL INTEGRITY] [PRIVACY]; initialized on first read/log, with no import-time database writes.
+  - [x] Create table `token_logs (id, timestamp, agent_role, model, input_tokens, output_tokens, cost_usd)`.
+  - [x] Implement `@mcp.resource("studio://telemetry/budget")`: Return today's UTC cumulative spend vs. `DAILY_BUDGET_USD`, token totals, remaining budget, and exhaustion/exceeded flags. USD values are decimal strings.
+  - [x] Implement `@mcp.tool() log_task_usage(...)`: Accepts explicit decimal-string USD cost, records usage in a serialized transaction, and raises a circuit-breaker error after committing over-budget usage. Exactly reaching the limit marks exhaustion; exceeding it raises an error. Do not retry recorded logs; retry deduplication is not implemented.
+  - [x] Test persistence, decimal totals, invalid input, UTC rollover, concurrent writes, budget boundaries, and MCP registration with temporary databases.
+  - Accounting is post-task reporting, not a model execution gate. Trusted orchestrator preflight/reservations and authenticated usage reporting remain Phase 4 work.
 - [ ] **4. Phase 2 Milestone Test**
+  - [x] Add and pass `tests/test_phase2_milestone.py`: live JSON resources through MCP dispatch, refreshed hardware timestamps, temporary usage logging, budget updates, and persistence.
+  - [x] Document automated and manual steps in `docs/phase2-validation.md`.
+  - Inspector verification remains pending; automated dispatch does not replace the manual connection test.
   - [ ] Query `studio://telemetry/hardware` and `studio://telemetry/budget` in the MCP Inspector "Resources" tab and verify live JSON output.
 
 ---
