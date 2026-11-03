@@ -34,8 +34,11 @@ def _run(target: str, kind: str) -> dict:
             command = [
                 "/runtime/bin/python",
                 "-I",
-                "-m",
-                "pytest",
+                "-c",
+                (
+                    "import sys, pytest; sys.path[:0] = ['/workspace', '/workspace/src']; "
+                    "raise SystemExit(pytest.main(sys.argv[1:]))"
+                ),
                 "-c",
                 "/dev/null",
                 "--rootdir=/workspace",
@@ -58,7 +61,10 @@ def run_tests(test_target: str) -> dict:
     """Run pytest on a file/directory snapshot; external plugins are disabled.
 
     Use a workspace-relative path, not pytest flags or node-id expressions.
-    Workspace writes do not persist; write temporary test files under /tmp.
+    Workspace root and src/ are explicit import roots inside isolation. Project
+    dependencies must already be installed by the operator in the server runtime;
+    no workspace installation scripts run automatically. Workspace writes do not
+    persist; write temporary test files under /tmp.
     """
     return _run(test_target, "tests")
 

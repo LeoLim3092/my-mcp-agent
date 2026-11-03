@@ -65,6 +65,38 @@ class WorkspaceTests(unittest.TestCase):
         ):
             execution.run_isolated(["true"], self.root, self.root)
 
+    def test_snapshot_preserves_empty_nested_directories(self):
+        (self.root / "assets/empty").mkdir(parents=True)
+        (self.root / ".git/hidden").mkdir(parents=True)
+        with tempfile.TemporaryDirectory() as copied:
+            execution.snapshot_workspace(Path(copied))
+            self.assertTrue((Path(copied) / "assets/empty").is_dir())
+            self.assertFalse((Path(copied) / ".git").exists())
+        with (
+            tempfile.TemporaryDirectory() as copied,
+            patch.object(config, "SNAPSHOT_MAX_FILES", 1),
+            self.assertRaises(ValueError),
+        ):
+            execution.snapshot_workspace(Path(copied))
+
+    def test_live_empty_directory_lints_without_missing_path(self):
+        (self.root / "empty").mkdir()
+        result = qa_runner.run_linter("empty")
+        self.assertTrue(result["passed"], result)
+        self.assertNotIn("E902", result["stdout"])
+
+    def test_live_pytest_imports_root_and_src_modules(self):
+        (self.root / "game.py").write_text("ANSWER = 42\n")
+        (self.root / "src").mkdir()
+        (self.root / "src/player.py").write_text("HEALTH = 100\n")
+        (self.root / "tests").mkdir()
+        (self.root / "tests/test_game.py").write_text(
+            "import game\nimport player\n\ndef test_game():\n    assert game.ANSWER == 42\n    assert player.HEALTH == 100\n"
+        )
+        result = qa_runner.run_tests("tests")
+        self.assertTrue(result["passed"], result)
+        self.assertIn("1 passed", result["stdout"])
+
     def test_live_linter_and_pytest(self):
         (self.root / "good.py").write_text("answer = 42\n")
         self.assertTrue(qa_runner.run_linter("good.py")["passed"])

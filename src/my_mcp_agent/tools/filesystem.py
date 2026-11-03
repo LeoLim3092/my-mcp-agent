@@ -5,17 +5,13 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from my_mcp_agent.config import ALLOWED_WORKSPACE, MAX_FILE_READ_BYTES
-from my_mcp_agent.security import SandboxViolationError, validate_path
+from my_mcp_agent.security import validate_path
+from my_mcp_agent.workspace_io import list_entries, read_bytes, write_bytes
 
 
 def _read_text(path: Path) -> str:
     """Bound the actual read, including when a file grows after validation."""
-    if not path.is_file():
-        raise ValueError("Expected an existing regular file.")
-    with path.open("rb") as stream:
-        data = stream.read(MAX_FILE_READ_BYTES + 1)
-    if len(data) > MAX_FILE_READ_BYTES:
-        raise ValueError(f"File exceeds the {MAX_FILE_READ_BYTES}-byte read limit.")
+    data = read_bytes(path, MAX_FILE_READ_BYTES)
     if b"\x00" in data:
         raise ValueError("Binary files are not supported; expected UTF-8 text.")
     try:
@@ -30,20 +26,7 @@ def list_directory(rel_path: str = ".") -> list[str]:
     Protected entries and symlinks are omitted. Call again on a subdirectory
     to explore it; this tool does not recursively traverse the workspace.
     """
-    directory = validate_path(rel_path)
-    if not directory.is_dir():
-        raise NotADirectoryError("Expected an existing workspace directory.")
-    entries = []
-    for child in sorted(directory.iterdir(), key=lambda entry: entry.name):
-        try:
-            visible = validate_path(str(child))
-        except SandboxViolationError:
-            continue
-        if visible.is_dir():
-            entries.append(child.name + "/")
-        elif visible.is_file():
-            entries.append(child.name)
-    return entries
+    return list_entries(rel_path)
 
 
 def read_file(rel_path: str) -> str:
@@ -56,15 +39,9 @@ def read_file(rel_path: str) -> str:
 
 def write_file(rel_path: str, content: str) -> str:
     """Create or overwrite a UTF-8 file, creating missing parent directories."""
-    path = validate_path(rel_path, operation="write")
-    if path.exists() and not path.is_file():
-        raise ValueError("Expected a regular file destination.")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Recheck after parent creation before opening the destination.
-    path = validate_path(rel_path, operation="write")
-    with path.open("w", encoding="utf-8", newline="") as stream:
-        stream.write(content)
-    return f"Wrote {len(content.encode('utf-8'))} bytes."
+    data = content.encode("utf-8")
+    write_bytes(rel_path, data)
+    return f"Wrote {len(data)} bytes."
 
 
 def patch_file(rel_path: str, target_snippet: str, replacement: str) -> str:
@@ -82,7 +59,7 @@ def patch_file(rel_path: str, target_snippet: str, replacement: str) -> str:
         raise ValueError("Target snippet was not found; file was not changed.")
     if content.find(target_snippet, first + 1) >= 0:
         raise ValueError("Target snippet occurs more than once; file was not changed.")
-    updated = content[:first] + replacement + content[first + len(target_snippet):]
+    updated = content[:first] + replacement + content[first + len(target_snippet) :]
     write_file(rel_path, updated)
     return "Replaced one matching snippet."
 

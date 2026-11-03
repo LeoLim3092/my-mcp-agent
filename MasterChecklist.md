@@ -15,6 +15,7 @@ bui
   - [✓] `security.py` [CRITICAL INTEGRITY] (`validate_path()` and `SandboxViolationError`; enforces file-access policy)
   - [x] `ledger.py` [CRITICAL INTEGRITY] [PRIVACY] (SQLite initialization, exact-decimal usage accounting, and UTC daily summaries)
   - [x] `execution.py` [CRITICAL PRIVILEGE] (filtered snapshot copying and fail-closed Bubblewrap runner)
+  - [x] `workspace_io.py` [CRITICAL INTEGRITY] (descriptor-relative no-symlink access, hard-link refusal, and atomic file replacement)
   - [✓] `tools/` [INTEGRITY] directory (`__init__.py` [INTEGRITY], `filesystem.py` [HIGH PRIVILEGE] [PRIVACY], `git_ops.py` [HIGH PRIVILEGE] [PRIVACY], `qa_runner.py` [CRITICAL PRIVILEGE], `external.py` [CRITICAL PRIVILEGE], `budget.py` [INTEGRITY])
   - [✓] `resources/` [INTEGRITY] [PRIVACY] directory (`__init__.py` [INTEGRITY], `telemetry.py` [INTEGRITY] [PRIVACY], `memory.py` [PRIVACY])
 - [✓] **Verify entry point:** Run `uv run mcp dev src/my_mcp_agent/server.py` and confirm it loads in the MCP Inspector (`http://localhost:6274`).
@@ -36,7 +37,7 @@ bui
 - [✓] **2. Implement File I/O Tools (`tools/filesystem.py` [HIGH PRIVILEGE] [PRIVACY])**
   - [✓] `list_directory(rel_path: str)`: Returns a sorted immediate-child file list (directory names end with `/`) inside the workspace; validate every child before displaying or descending into it.
   - [✓] `read_file(rel_path: str)`: Reads UTF-8 text/code files and returns content with line numbers.
-  - [✓] `write_file(rel_path: str, content: str)`: Creates missing parent folders and writes content to disk.
+  - [✓] `write_file(rel_path: str, content: str)`: Creates parent folders through directory descriptors and atomically replaces regular, single-link files; rejects hard links and symlinks.
   - [✓] `patch_file(rel_path: str, target_snippet: str, replacement: str)`: Replaces specific code blocks without rewriting entire files (token optimization).
   - [✓] Import `validate_path` from `security.py` [CRITICAL INTEGRITY]; use `operation="write"` for every mutation and enforce `MAX_FILE_READ_BYTES` for reads.
 - [✓] **3. Implement Git Safety Tools (`tools/git_ops.py` [HIGH PRIVILEGE] [PRIVACY])**
@@ -79,7 +80,7 @@ bui
 
 - [x] **1. Build the QA & Linter Runner (`tools/qa_runner.py` [CRITICAL PRIVILEGE])**
   - [x] `run_linter(rel_path: str)`: Runs `ruff check` or game engine script validation with a strict `timeout=30`s, returning stdout/stderr for self-debugging.
-  - [x] `run_tests(test_target: str)`: Runs isolated `pytest` on a workspace snapshot and returns exit code, pass/fail, bounded stdout/stderr, and timeout status.
+  - [x] `run_tests(test_target: str)`: Runs isolated `pytest` with explicit workspace root/src imports on a snapshot preserving empty directories; returns exit code, pass/fail, bounded stdout/stderr, and timeout status.
   - [x] Isolate executed tests from trusted server files, credentials, and unrestricted network access; path validation alone does not constrain executed code.
 - [x] **2. Build the Web Documentation Fetcher (`tools/external.py` [CRITICAL PRIVILEGE])**
   - [x] Install `httpx`, `httpcore`, `beautifulsoup4`, `markdownify`, `ruff`, and `pytest`; lock dependencies.
@@ -94,6 +95,21 @@ bui
   - [x] Verify isolated host paths/environment/network, read-only inputs, hard-link/symlink filtering, output truncation, timeouts, and fail-closed execution.
   - [x] Document setup and validation in `docs/phase3-validation.md`; provide the checksum-verifying portable Blender installer in `scripts/install_blender.py`.
   - Isolation uses Linux Bubblewrap namespaces and per-process limits. Aggregate cgroup quotas and protection against hostile concurrent local writers remain future hardening, not completed guarantees.
+
+---
+
+## Leo revision point before Phase 4
+
+Revision checkpoint: fixes from Leo's foundation review, recorded before starting agent orchestration. This records the implemented revision; it does not claim manual Inspector validation or all future hardening is complete.
+
+- [x] Log review findings before remediation in `todo.md`.
+- [x] Reject hard-linked files and use descriptor-relative, no-symlink general file access with atomic writes (`workspace_io.py` [CRITICAL INTEGRITY]).
+- [x] Fix isolated pytest imports for workspace-root and `src/` modules.
+- [x] Preserve empty/nested directories in execution snapshots.
+- [x] Add nine regression tests; the updated 48-test suite passes, with final Phase 3 checks and lint also passing.
+- [x] Document Blender capabilities, execution/export limits, and remaining boundaries in `docs/blender-mcp-limitations.md`.
+- [x] Keep remaining integration, concurrency, budget enforcement, resource quota, and authorization work explicitly pending in `todo.md`.
+- [ ] Validate the real client/stdio connection during Phase 4.1; retain the pending Inspector checks from Phase 2.
 
 ---
 

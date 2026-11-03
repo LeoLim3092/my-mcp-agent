@@ -51,6 +51,11 @@ memory/disk quotas. Concurrent hostile local workspace writers and kernel exploi
 are outside the completed security guarantees; further hardening remains in `todo.md`.
 
 QA inputs are read-only; test-generated temporary data belongs under `/tmp`.
+Pytest explicitly imports modules from `/workspace` and `/workspace/src` while
+retaining isolated Python startup. The trusted pytest package is imported before
+those paths are added. Project dependencies must already be installed by the
+operator in the runtime; workspace package-install hooks are not run automatically.
+Snapshots retain allowed empty/nested directories.
 Project-specific Ruff configuration is ignored. pytest configuration is disabled;
 workspace `conftest.py` still runs inside the sandbox. Tools accept paths, not shell
 commands or arbitrary pytest flags. Outputs include `exit_code`, `timed_out`, stdout,
@@ -134,3 +139,15 @@ Reference behavior follows [pytest plugin controls](https://docs.pytest.org/en/s
 - Real runtime: official SHA-256-verified Blender 4.5.3, Linux Bubblewrap isolation.
 - Live HTTPS: Python pathlib documentation returned approximately 86,000 Markdown characters.
 - Test workspaces and Blender exports were temporary; real game files were not modified.
+
+## Review remediation — 2026-11-03
+
+The review reproduced three failures despite the original 39 passing tests:
+workspace hard links bypassed general file I/O, pytest could not import root-level
+game modules from a separate tests directory, and snapshots dropped empty folders.
+These are now fixed with descriptor-relative/atomic general file I/O, explicit
+root/src pytest imports, and directory-preserving snapshots. Regression coverage
+includes hard links, FIFOs, simulated symlink swaps, failed atomic publication,
+project imports, and empty-directory linting. The updated full suite has 48 tests.
+Atomic writes do not provide concurrent patch conflict detection; malicious local
+directory relocation, Git concurrency and batch export publication remain open.

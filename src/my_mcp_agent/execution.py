@@ -28,6 +28,9 @@ def snapshot_workspace(destination: Path) -> None:
             count += 1
             if count > config.SNAPSHOT_MAX_FILES:
                 raise ValueError("Workspace exceeds execution snapshot entry limits.")
+            (destination / (parent / name).relative_to(root)).mkdir(
+                parents=True, exist_ok=True
+            )
             safe_dirs.append(name)
         dirs[:] = safe_dirs
         for name in files:

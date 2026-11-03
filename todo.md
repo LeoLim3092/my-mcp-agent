@@ -6,12 +6,33 @@ Leave these tasks unchecked until their expected results have been verified.
 Use disposable workspaces/repositories with fake secrets for destructive or security tests.
 Record the date, environment, command or MCP inputs, and observed result when completing a task.
 
+## Review findings — 2026-11-03
+
+Logged before remediation. The existing 39 tests passed, but focused disposable-workspace probes confirmed these defects:
+
+- [x] F1 / High: general file tools read an outside file through an existing workspace hard link, and `write_file` changed that outside file. Reject hard links, use descriptor-relative no-symlink reads, and publish writes atomically without following destination links. Add regression tests for read/write/patch and path replacement.
+- [x] F2 / High: `run_tests("tests")` fails to import a workspace-root `game.py` from `tests/test_game.py`. Add explicit snapshot import paths while preserving isolated Python startup, and test root and `src/` layouts. Dependency installation stays operator-controlled; do not run workspace install hooks automatically.
+- [x] F3 / Medium: execution snapshots omit empty directories, so linting an existing empty directory fails with a missing-path error. Preserve allowed empty/nested directories and test their entry limits.
+
+Still required separately: real stdio/Inspector validation; bounded file/list/Git output; a complete web/DNS deadline; concurrent edits/Git/export handling; budget reservations/idempotency; Phase 4 role authorization. Aggregate cgroup quotas are required before hostile concurrent execution. These are not claimed fixed by F1–F3 remediation.
+
+Remediation: F1 uses `workspace_io.py` for descriptor-relative, no-symlink access,
+regular/single-link checks, and atomic file replacement. F2 adds explicit snapshot
+root/src import paths after importing the trusted pytest runtime. F3 preserves
+allowed directories and applies snapshot entry limits. Six new file-access tests
+and three QA/snapshot tests cover the reproduced defects. The suite now has 48 tests.
+
+Remaining boundary: directory-descriptor access does not prevent an OS-level actor
+from relocating an already-open directory outside the workspace. Atomic replacement
+also does not detect lost updates from concurrent patches; whole export batches
+and Git operations need separate concurrency protection.
+
 ## Existing automated checks
 
-The current suite contains six filesystem tests and six Git tests. It covers basic
-UTF-8 file operations, patch rejection, protected paths, internal symlinks, read
-limits, binary rejection, tool registration, staged-only commits, branch protection,
-hook suppression, repository boundaries, and inherited Git overrides.
+The current suite has 48 tests: six filesystem tests, six Git tests, six budget
+tests, four telemetry tests, one Phase 1 milestone, one Phase 2 milestone,
+eighteen Phase 3 tests, and six workspace I/O regression tests. Tests cover direct
+functions, MCP dispatch, isolated QA/Blender execution, and the review fixes.
 
 Run the full suite:
 
@@ -25,8 +46,8 @@ Run only Git tests:
 .venv/bin/python -m unittest discover -s tests -p 'test_git_ops.py' -v
 ```
 
-These tests call tool functions directly. They do not exercise a full MCP client
-session. Real MCP tool schema generation was also checked separately during development.
+Tests exercise direct functions and real MCP tool/resource dispatch. They do not
+exercise a full client transport session or Inspector UI; those checks remain pending.
 
 ## Phase 0 — Server startup and MCP integration
 
@@ -42,7 +63,7 @@ session. Real MCP tool schema generation was also checked separately during deve
 - [ ] Confirm allowed absolute workspace paths work, outside absolute paths fail, and sibling directories with a similar name cannot pass containment checks.
 - [ ] Verify empty paths, whitespace, `.`, and parent traversal have the documented behavior; root writes must fail.
 - [ ] Test external, internal, broken, and chained symlinks; neither reads nor writes may follow them.
-- [ ] Review hard links to outside files: document the current limitation and select an isolation or file-opening policy before treating the workspace as safe for hostile local writers.
+- [x] General file I/O and snapshots reject hard links; regression tests confirm read/write/patch cannot access or change an outside hard-linked file. Continue the separate Git boundary review before claiming all operations are safe against hostile local writers.
 - [ ] Test concurrent path/symlink replacement using disposable files. Implement and verify safe file-opening practices or OS isolation before claiming protection against these races.
 - [ ] Review credential patterns against actual development tools; unknown secret filenames are not automatically detected.
 
@@ -54,8 +75,9 @@ session. Real MCP tool schema generation was also checked separately during deve
 - [ ] Test empty files, LF/CRLF endings, final lines without a newline, and Unicode filenames/content through the MCP client.
 - [ ] Test exactly `MAX_FILE_READ_BYTES` and one byte above it, including multibyte UTF-8; oversized reads and patches fail without changing the file.
 - [ ] Verify missing files, permission errors, and disappearing directory entries fail clearly without leaking protected data.
-- [ ] Test interrupted writes and concurrent edits. Decide whether atomic replacement and conflict detection are required; current writes can truncate before completion and patches can overwrite concurrent edits.
-- [ ] Test existing hard links and special files in an isolated environment; writes must not alter outside data or block indefinitely.
+- [x] Use atomic replacement for general file writes and test failed publication: existing content remains intact and temporary files are cleaned.
+- [ ] Add concurrent patch conflict detection; atomic replacement alone can still lose another writer's changes.
+- [x] Test hard-linked files and FIFOs with disposable fixtures; general file writes do not alter outside data, and FIFO reads/writes reject without blocking.
 - [ ] Measure large-directory listings and large writes; decide on output, write-size, and disk-usage limits before wider use.
 
 ## Phase 1.3 — Git tools
@@ -120,10 +142,19 @@ Budget tests: `.venv/bin/python -m unittest discover -s tests -p 'test_budget.py
 - [x] Verify MCP tool/resource dispatch and explicit/dynamic/bounded architecture memory.
 - [x] Add [Phase 3 setup and validation](docs/phase3-validation.md) and an official-checksum portable Blender installer. Runtime binaries remain ignored by Git.
 - [ ] Before hostile multi-tenant execution, add aggregate cgroup memory/PID/disk quotas and stronger kernel-level restrictions; current limits are per process/user and namespaces share the host kernel.
-- [ ] Harden concurrent publication and existing general file tools against malicious local path replacement; snapshot reads already use descriptor-relative traversal and exports replace destination entries.
+- [x] Harden general file I/O against symlink replacement using descriptor-relative traversal and atomic replacement; add simulated ancestor/final-symlink regression tests.
+- [ ] Protect concurrent Blender publication, Git operations, and local directory relocation; descriptor-relative file I/O and snapshot reads do not solve every hostile local-writer case.
 - [ ] Add a hard deadline for OS DNS resolution; current socket/read timeouts do not bound synchronous resolver calls.
 - [ ] Optionally add a documentation-domain allowlist for deployments that need narrower outbound access.
 
 Phase 3 tests: `.venv/bin/python -m unittest discover -s tests -p 'test_phase3.py' -v`.
 The full suite also runs all prior Phase 1/2 tests. Live web fetching was tested separately;
 repeatable web tests use mocked public responses. See the guide for runtime prerequisites.
+
+## Leo revision point before Phase 4
+
+This checkpoint contains the F1–F3 review fixes, nine regression tests, corrected
+validation records, and Blender MCP limitations. The foundation now has 48 passing
+tests; real client transport validation and the separately listed requirements
+remain open. The checkpoint is recorded in `MasterChecklist.md` immediately before
+Phase 4 and in the associated revision commit.
