@@ -14,6 +14,7 @@ bui
   - [✓] `config.py` [CRITICAL INTEGRITY] (Workspace paths, budget caps, size limits, and protection rules; no directory creation on import)
   - [✓] `security.py` [CRITICAL INTEGRITY] (`validate_path()` and `SandboxViolationError`; enforces file-access policy)
   - [x] `ledger.py` [CRITICAL INTEGRITY] [PRIVACY] (SQLite initialization, exact-decimal usage accounting, and UTC daily summaries)
+  - [x] `execution.py` [CRITICAL PRIVILEGE] (filtered snapshot copying and fail-closed Bubblewrap runner)
   - [✓] `tools/` [INTEGRITY] directory (`__init__.py` [INTEGRITY], `filesystem.py` [HIGH PRIVILEGE] [PRIVACY], `git_ops.py` [HIGH PRIVILEGE] [PRIVACY], `qa_runner.py` [CRITICAL PRIVILEGE], `external.py` [CRITICAL PRIVILEGE], `budget.py` [INTEGRITY])
   - [✓] `resources/` [INTEGRITY] [PRIVACY] directory (`__init__.py` [INTEGRITY], `telemetry.py` [INTEGRITY] [PRIVACY], `memory.py` [PRIVACY])
 - [✓] **Verify entry point:** Run `uv run mcp dev src/my_mcp_agent/server.py` and confirm it loads in the MCP Inspector (`http://localhost:6274`).
@@ -76,20 +77,23 @@ bui
 ## Phase 3: Dev, QA & External Tooling (The Heavy Lifters)
 *Goal: Equip Coding, Research, and 3D Artist agents with execution bridges.*
 
-- [ ] **1. Build the QA & Linter Runner (`tools/qa_runner.py` [CRITICAL PRIVILEGE])**
-  - [ ] `run_linter(rel_path: str)`: Runs `ruff check` or game engine script validation with a strict `timeout=30`s, returning stdout/stderr for self-debugging.
-  - [ ] `run_tests(test_target: str)`: Runs `pytest` or headless engine unit tests and returns pass/fail output.
-  - [ ] Isolate executed tests from trusted server files, credentials, and unrestricted network access; path validation alone does not constrain executed code.
-- [ ] **2. Build the Web Documentation Fetcher (`tools/external.py` [CRITICAL PRIVILEGE])**
-  - [ ] Run `uv add httpx beautifulsoup4 markdownify`.
-  - [ ] `fetch_web_docs(url: str)`: Fetches web docs, strips HTML boilerplate, and returns clean Markdown.
-- [ ] **3. Build the Headless Blender Bridge (`tools/external.py` [CRITICAL PRIVILEGE])**
-  - [ ] `run_blender_script(script_content: str, blend_file: str | None)`: Input `.blend` files [CONDITIONAL PRIVACY]; writes temporary `.py` script [CRITICAL PRIVILEGE] and runs `blender -b -P temp_script.py` headlessly to generate/export 3D assets (FBX/GLTF) [CONDITIONAL PRIVACY] or validate mesh polygon counts.
-  - [ ] Run Blender scripts in an isolated environment with restricted filesystem/network access and no server credentials.
-- [ ] **4. Build Shared Studio Memory (`resources/memory.py` [PRIVACY])**
-  - [ ] Implement `@mcp.resource("studio://memory/architecture")`: Dynamically concatenates core Game Design Documents and coding standards [CONDITIONAL PRIVACY] for agent context alignment.
-- [ ] **5. Phase 3 Milestone Test**
-  - [ ] Run `run_linter` on a sample script, fetch a doc page via `fetch_web_docs`, and verify headless Blender execution.
+- [x] **1. Build the QA & Linter Runner (`tools/qa_runner.py` [CRITICAL PRIVILEGE])**
+  - [x] `run_linter(rel_path: str)`: Runs `ruff check` or game engine script validation with a strict `timeout=30`s, returning stdout/stderr for self-debugging.
+  - [x] `run_tests(test_target: str)`: Runs isolated `pytest` on a workspace snapshot and returns exit code, pass/fail, bounded stdout/stderr, and timeout status.
+  - [x] Isolate executed tests from trusted server files, credentials, and unrestricted network access; path validation alone does not constrain executed code.
+- [x] **2. Build the Web Documentation Fetcher (`tools/external.py` [CRITICAL PRIVILEGE])**
+  - [x] Install `httpx`, `httpcore`, `beautifulsoup4`, `markdownify`, `ruff`, and `pytest`; lock dependencies.
+  - [x] `fetch_web_docs(url: str)`: Fetches public HTTP(S) docs, strips HTML boilerplate, and returns Markdown; validates DNS/redirect destinations, pins checked IPs, and caps uncompressed responses at 2 MB.
+- [x] **3. Build the Headless Blender Bridge (`tools/external.py` [CRITICAL PRIVILEGE])**
+  - [x] `run_blender_script(script_content: str, blend_file: str | None)`: Reads optional workspace `.blend` inputs [CONDITIONAL PRIVACY] and executes a temporary script in isolated headless Blender; validate polygons and write assets under `/output`, then publish supported outputs to `assets/generated/` only on success.
+  - [x] Run Blender scripts in an isolated environment with restricted filesystem/network access and no server credentials.
+- [x] **4. Build Shared Studio Memory (`resources/memory.py` [PRIVACY])**
+  - [x] Implement `@mcp.resource("studio://memory/architecture")`: Dynamically concatenates only approved `MEMORY_DOCUMENTS` (default `GDD.md`, `ARCHITECTURE.md`, `CODING_STANDARDS.md`) [CONDITIONAL PRIVACY], applying path and total-size limits.
+- [x] **5. Phase 3 Milestone Test**
+  - [x] Run real Ruff/pytest checks, fetch the public Python pathlib documentation, and verify Blender cube polygon count, export/reload, error reporting, and shared MCP tool/resource dispatch.
+  - [x] Verify isolated host paths/environment/network, read-only inputs, hard-link/symlink filtering, output truncation, timeouts, and fail-closed execution.
+  - [x] Document setup and validation in `docs/phase3-validation.md`; provide the checksum-verifying portable Blender installer in `scripts/install_blender.py`.
+  - Isolation uses Linux Bubblewrap namespaces and per-process limits. Aggregate cgroup quotas and protection against hostile concurrent local writers remain future hardening, not completed guarantees.
 
 ---
 

@@ -77,9 +77,9 @@ session. Real MCP tool schema generation was also checked separately during deve
 ## Later phases — Validation to schedule when implemented
 
 - [ ] Phase 2: verify hardware resource responses through MCP, ledger persistence, timezone/day rollover, concurrent logging, malformed usage, and exact budget boundaries. Verify every model call is gated; recording spending afterward cannot prevent an already incurred charge.
-- [ ] Phase 3: verify QA/Blender execution cannot read server files or credentials, write outside allowed mounts, or use disallowed network access; test timeout/process cleanup.
-- [ ] Phase 3: verify web fetching blocks disallowed internal destinations, including redirects and DNS changes; bound response size and request time.
-- [ ] Phase 3: verify shared memory includes only explicitly approved documents and never exposes credentials or follows symlinks.
+- [x] Phase 3: verify QA/Blender execution cannot read server files or credentials, write outside allowed mounts, or use disallowed network access; test timeout/process cleanup. See the Phase 3 validation guide for tested boundaries and remaining hardening.
+- [x] Phase 3: verify web fetching blocks disallowed internal destinations, including redirects and DNS changes; bound response size and socket/read time. A hard OS DNS deadline remains pending below.
+- [x] Phase 3: verify shared memory includes only explicitly approved documents, applies secret-path policy, and rejects symlinks. Operators must keep secrets out of approved document contents.
 - [ ] Phase 4: test the real desktop/client integration and server/dispatcher authorization for every role. Editing prompts or YAML must not grant extra tools.
 - [ ] Phase 4: run an end-to-end task with budget preflight, authorized tools, usage recording, failures, and restart recovery.
 
@@ -107,3 +107,23 @@ Budget tests: `.venv/bin/python -m unittest discover -s tests -p 'test_budget.py
 - [x] Automated MCP dispatch test in `tests/test_phase2_milestone.py` passes using live hardware and a temporary ledger. Verified outside the restricted sandbox after its thread dispatch timed out inside it.
 - [x] Document test commands, expected results, and manual Inspector steps in [docs/phase2-validation.md](docs/phase2-validation.md).
 - [ ] Complete and record manual Resources-tab checks for both telemetry URIs using that guide; then update the Phase 2 milestone checkbox.
+
+## Phase 3 — Implementation and validation complete
+
+- [x] Implement isolated Ruff/pytest, public documentation fetching, Blender execution/validated exports, and approved architecture memory.
+- [x] Run real Ruff and pytest success/failure cases in Bubblewrap with no network and no host home directory.
+- [x] Verify cleared secret environment, blocked host path access, read-only inputs, timeout cleanup, and bounded output.
+- [x] Verify snapshots omit protected files, Git metadata, symlinks, hard links, and special files.
+- [x] Verify public-web policy, private/metadata addresses, redirect checks, checked-IP sockets, text conversion, response sizes/types, and compressed-response rejection.
+- [x] Fetch live Python pathlib documentation successfully over HTTPS.
+- [x] Run verified Blender 4.5.3: generate cube, inspect six polygons, export and reload `.blend`, report Python errors, and reject symlink exports.
+- [x] Verify MCP tool/resource dispatch and explicit/dynamic/bounded architecture memory.
+- [x] Add [Phase 3 setup and validation](docs/phase3-validation.md) and an official-checksum portable Blender installer. Runtime binaries remain ignored by Git.
+- [ ] Before hostile multi-tenant execution, add aggregate cgroup memory/PID/disk quotas and stronger kernel-level restrictions; current limits are per process/user and namespaces share the host kernel.
+- [ ] Harden concurrent publication and existing general file tools against malicious local path replacement; snapshot reads already use descriptor-relative traversal and exports replace destination entries.
+- [ ] Add a hard deadline for OS DNS resolution; current socket/read timeouts do not bound synchronous resolver calls.
+- [ ] Optionally add a documentation-domain allowlist for deployments that need narrower outbound access.
+
+Phase 3 tests: `.venv/bin/python -m unittest discover -s tests -p 'test_phase3.py' -v`.
+The full suite also runs all prior Phase 1/2 tests. Live web fetching was tested separately;
+repeatable web tests use mocked public responses. See the guide for runtime prerequisites.

@@ -13,3 +13,6 @@ __pycache__/
 
 # Private runtime accounting database and SQLite sidecars
 studio_ledger.db*
+
+# Operator-installed portable execution runtimes
+.runtime/
