@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from markdownify import markdownify
 
 from my_mcp_agent.config import WEB_MAX_BYTES
+from my_mcp_agent.contracts import WebURL
 
 
 def _public_addresses(host: str, port: int) -> list[str]:
@@ -103,7 +104,7 @@ def _validate_url(value: str) -> httpx.URL:
     return url
 
 
-def fetch_web_docs(url: str) -> str:
+def fetch_web_docs(url: WebURL) -> str:
     """Fetch public HTML/plain text as Markdown, capped at 2 MB.
 
     Redirects are validated individually; private, loopback, link-local and

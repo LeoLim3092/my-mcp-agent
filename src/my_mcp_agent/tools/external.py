@@ -8,12 +8,16 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from my_mcp_agent import config
+from my_mcp_agent.contracts import BlenderResult, BlenderScript, WorkspacePath
 from my_mcp_agent.execution import run_isolated, snapshot_workspace
 from my_mcp_agent.security import validate_path
+from my_mcp_agent.tool_errors import ToolOperationError, agent_tool
 from my_mcp_agent.tools.web_docs import fetch_web_docs
 
 
-def run_blender_script(script_content: str, blend_file: str | None = None) -> dict:
+def run_blender_script(
+    script_content: BlenderScript, blend_file: WorkspacePath | None = None
+) -> BlenderResult:
     """Run Python in isolated Blender with a 30-second limit and no network.
 
     Inputs appear under /workspace (read-only); write exports to /output.
@@ -26,7 +30,9 @@ def run_blender_script(script_content: str, blend_file: str | None = None) -> di
         raise ValueError("Provide a nonempty Blender script of at most 1 MB.")
     executable = shutil.which(config.BLENDER_EXECUTABLE)
     if not executable:
-        raise RuntimeError("Blender is not installed/configured; execution refused.")
+        raise ToolOperationError(
+            "Blender is not installed/configured; execution refused."
+        )
     executable = Path(executable).resolve()
     if blend_file is not None:
         blend_path = validate_path(blend_file)
@@ -56,8 +62,10 @@ def run_blender_script(script_content: str, blend_file: str | None = None) -> di
                 + blend_path.relative_to(config.ALLOWED_WORKSPACE).as_posix()
             ]
         command += ["--python-exit-code", "1", "--python", "/script.py"]
-        result = run_isolated(command, workspace, output, mounts)
-        result["exports"] = []
+        result: BlenderResult = {
+            **run_isolated(command, workspace, output, mounts),
+            "exports": [],
+        }
         if result["exit_code"] != 0 or result["timed_out"]:
             return result
         # Inspect the complete output set before publishing any files. Never
@@ -112,4 +120,4 @@ def run_blender_script(script_content: str, blend_file: str | None = None) -> di
 
 def register_external_tools(mcp: MCPServer) -> None:
     for tool in (fetch_web_docs, run_blender_script):
-        mcp.tool()(tool)
+        mcp.tool()(agent_tool(tool))

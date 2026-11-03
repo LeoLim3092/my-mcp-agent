@@ -10,7 +10,9 @@ import tempfile
 from pathlib import Path
 
 from my_mcp_agent import config
+from my_mcp_agent.contracts import ExecutionResult
 from my_mcp_agent.security import SandboxViolationError, validate_path
+from my_mcp_agent.tool_errors import ToolOperationError
 
 
 def snapshot_workspace(destination: Path) -> None:
@@ -78,7 +80,7 @@ def run_isolated(
     workspace: Path,
     output: Path,
     extra_mounts: tuple[tuple[Path, str], ...] = (),
-) -> dict:
+) -> ExecutionResult:
     """Run without host home, credentials, network, or writable host workspace.
 
     Requires user namespaces. Runtime/system files are read-only. CPU, address
@@ -88,7 +90,7 @@ def run_isolated(
     bwrap = shutil.which("bwrap")
     prlimit = shutil.which("prlimit")
     if sys.platform != "linux" or not bwrap or not prlimit:
-        raise RuntimeError(
+        raise ToolOperationError(
             "Linux, Bubblewrap and prlimit are required; execution refused."
         )
     args = [
@@ -175,7 +177,7 @@ def run_isolated(
         out = stdout.read(config.EXECUTION_OUTPUT_BYTES + 1)
         err = stderr.read(config.EXECUTION_OUTPUT_BYTES + 1)
     if process.returncode and b"bwrap:" in err:
-        raise RuntimeError(
+        raise ToolOperationError(
             "Bubblewrap isolation failed; command was not run without isolation."
         )
     return {

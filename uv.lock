@@ -413,8 +413,10 @@ dependencies = [
     { name = "markdownify" },
     { name = "mcp", extra = ["cli"] },
     { name = "psutil" },
+    { name = "pydantic" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "typing-extensions" },
 ]
 
 [package.metadata]
@@ -425,8 +427,10 @@ requires-dist = [
     { name = "markdownify", specifier = ">=1.2.3" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.3.0" },
     { name = "psutil", specifier = ">=7.2.2" },
+    { name = "pydantic", specifier = ">=2.14.1" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "ruff", specifier = ">=0.17.3" },
+    { name = "typing-extensions", specifier = ">=4.16.0" },
 ]
 
 [[package]]

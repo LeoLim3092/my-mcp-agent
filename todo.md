@@ -29,9 +29,9 @@ and Git operations need separate concurrency protection.
 
 ## Existing automated checks
 
-The current suite has 48 tests: six filesystem tests, six Git tests, six budget
+The current suite has 58 tests: six filesystem tests, six Git tests, six budget
 tests, four telemetry tests, one Phase 1 milestone, one Phase 2 milestone,
-eighteen Phase 3 tests, and six workspace I/O regression tests. Tests cover direct
+eighteen Phase 3 tests, six workspace I/O regression tests, and ten MCP contract tests. Tests cover direct
 functions, MCP dispatch, isolated QA/Blender execution, and the review fixes.
 
 Run the full suite:
@@ -46,8 +46,9 @@ Run only Git tests:
 .venv/bin/python -m unittest discover -s tests -p 'test_git_ops.py' -v
 ```
 
-Tests exercise direct functions and real MCP tool/resource dispatch. They do not
-exercise a full client transport session or Inspector UI; those checks remain pending.
+Tests exercise direct functions, real MCP tool/resource dispatch, and initialized
+client/server sessions over in-memory transport. Production stdio and Inspector
+UI checks remain pending.
 
 ## Phase 0 — Server startup and MCP integration
 
@@ -158,3 +159,14 @@ validation records, and Blender MCP limitations. The foundation now has 48 passi
 tests; real client transport validation and the separately listed requirements
 remain open. The checkpoint is recorded in `MasterChecklist.md` immediately before
 Phase 4 and in the associated revision commit.
+
+## MCP input/output contract revision
+
+- [x] Publish valid input and output schemas for all 13 tools; replace bare dictionary result annotations with explicit typed contracts.
+- [x] Publish strict token counts, path/string lengths, nonblank identifiers, script bounds, and decimal-string cost constraints.
+- [x] Enforce a 1 MB encoded write limit before modifying files or creating parent directories; patch outputs use the same limit.
+- [x] Preserve expected tool errors, especially the saved-log/no-retry over-budget warning; keep unexpected crash details server-side.
+- [x] Validate success/error responses using a real initialized MCP client/server session over in-memory transport.
+- [x] Add ten contract tests; full suite has 58 passing tests. See [MCP tool contracts](docs/mcp-tool-contracts.md).
+- [ ] Complete production stdio/desktop/Inspector checks; in-memory protocol coverage does not validate those deployment paths.
+- [ ] Add logging idempotency before safe automatic retries; an error flag does not imply side effects were rolled back.

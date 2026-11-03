@@ -4,8 +4,14 @@ from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 
-from my_mcp_agent.config import ALLOWED_WORKSPACE, MAX_FILE_READ_BYTES
+from my_mcp_agent.config import (
+    ALLOWED_WORKSPACE,
+    MAX_FILE_READ_BYTES,
+    MAX_FILE_WRITE_BYTES,
+)
+from my_mcp_agent.contracts import Snippet, TextContent, WorkspacePath
 from my_mcp_agent.security import validate_path
+from my_mcp_agent.tool_errors import agent_tool
 from my_mcp_agent.workspace_io import list_entries, read_bytes, write_bytes
 
 
@@ -20,7 +26,7 @@ def _read_text(path: Path) -> str:
         raise ValueError("Expected a UTF-8 text file.") from error
 
 
-def list_directory(rel_path: str = ".") -> list[str]:
+def list_directory(rel_path: WorkspacePath = ".") -> list[str]:
     """List immediate readable children, with '/' appended to directories.
 
     Protected entries and symlinks are omitted. Call again on a subdirectory
@@ -29,7 +35,7 @@ def list_directory(rel_path: str = ".") -> list[str]:
     return list_entries(rel_path)
 
 
-def read_file(rel_path: str) -> str:
+def read_file(rel_path: WorkspacePath) -> str:
     """Read a UTF-8 text file with 1-based line numbers and a byte-size limit."""
     content = _read_text(validate_path(rel_path))
     return "\n".join(
@@ -37,14 +43,20 @@ def read_file(rel_path: str) -> str:
     )
 
 
-def write_file(rel_path: str, content: str) -> str:
+def write_file(rel_path: WorkspacePath, content: TextContent) -> str:
     """Create or overwrite a UTF-8 file, creating missing parent directories."""
     data = content.encode("utf-8")
+    if len(data) > MAX_FILE_WRITE_BYTES:
+        raise ValueError(
+            f"File exceeds the {MAX_FILE_WRITE_BYTES}-byte write limit; file was not changed."
+        )
     write_bytes(rel_path, data)
     return f"Wrote {len(data)} bytes."
 
 
-def patch_file(rel_path: str, target_snippet: str, replacement: str) -> str:
+def patch_file(
+    rel_path: WorkspacePath, target_snippet: Snippet, replacement: TextContent
+) -> str:
     """Replace exactly one literal snippet in a size-limited UTF-8 file.
 
     Reject empty, missing, or repeated targets so the caller must identify an
@@ -71,4 +83,4 @@ def register_filesystem_tools(mcp: MCPServer) -> None:
         return f"Filesystem module active. Workspace: {ALLOWED_WORKSPACE}"
 
     for tool in (list_directory, read_file, write_file, patch_file):
-        mcp.tool()(tool)
+        mcp.tool()(agent_tool(tool))

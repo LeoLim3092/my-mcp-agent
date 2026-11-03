@@ -113,6 +113,16 @@ Revision checkpoint: fixes from Leo's foundation review, recorded before startin
 
 ---
 
+### MCP contract revision before Phase 4
+
+- [x] Add `contracts.py` [INTEGRITY] for constrained inputs and typed usage/QA/Blender result schemas.
+- [x] Add `tool_errors.py` [CRITICAL INTEGRITY] to preserve expected error messages while leaving unexpected crashes generic.
+- [x] Verify all 13 tools publish valid input/output schemas and supply structured results; retain compatibility text content.
+- [x] Publish strict token, string, script, and decimal-cost constraints; enforce the configured encoded file-write limit before mutation.
+- [x] Verify the saved over-budget warning and successful/error results through initialized in-memory MCP client/server sessions.
+- [x] Document contracts in `docs/mcp-tool-contracts.md`; add ten contract tests, bringing the full suite to 58 tests.
+- [ ] Validate production stdio/desktop/Inspector during Phase 4.1; retain pending budget retry/idempotency work.
+
 ## Phase 4: Multi-Agent Studio Orchestration (The Client Layer)
 *Goal: Connect the MCP server toolbox to role-based AI personas.*
 

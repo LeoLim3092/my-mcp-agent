@@ -6,11 +6,13 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from my_mcp_agent import config
+from my_mcp_agent.contracts import QAResult, WorkspacePath
 from my_mcp_agent.execution import run_isolated, snapshot_workspace
 from my_mcp_agent.security import validate_path
+from my_mcp_agent.tool_errors import agent_tool
 
 
-def _run(target: str, kind: str) -> dict:
+def _run(target: str, kind: str) -> QAResult:
     path = validate_path(target)
     if not path.exists():
         raise FileNotFoundError("QA target does not exist.")
@@ -48,16 +50,18 @@ def _run(target: str, kind: str) -> dict:
                 relative,
             ]
         result = run_isolated(command, workspace, output)
-        result["passed"] = result["exit_code"] == 0 and not result["timed_out"]
-        return result
+        return {
+            **result,
+            "passed": result["exit_code"] == 0 and not result["timed_out"],
+        }
 
 
-def run_linter(rel_path: str) -> dict:
+def run_linter(rel_path: WorkspacePath) -> QAResult:
     """Run Ruff on a file/directory snapshot with a 30-second execution timeout."""
     return _run(rel_path, "lint")
 
 
-def run_tests(test_target: str) -> dict:
+def run_tests(test_target: WorkspacePath) -> QAResult:
     """Run pytest on a file/directory snapshot; external plugins are disabled.
 
     Use a workspace-relative path, not pytest flags or node-id expressions.
@@ -71,4 +75,4 @@ def run_tests(test_target: str) -> dict:
 
 def register_qa_tools(mcp: MCPServer) -> None:
     for tool in (run_linter, run_tests):
-        mcp.tool()(tool)
+        mcp.tool()(agent_tool(tool))

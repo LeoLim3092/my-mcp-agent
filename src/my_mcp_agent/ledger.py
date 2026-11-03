@@ -6,10 +6,11 @@ Budget days use UTC. The ledger is initialized lazily, not during module import.
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from my_mcp_agent.config import DAILY_BUDGET_USD, LEDGER_DB_PATH
+from my_mcp_agent.contracts import BudgetSummary, UsageLogResult
 
 
 class BudgetExceededError(RuntimeError):
@@ -17,7 +18,7 @@ class BudgetExceededError(RuntimeError):
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _money(value: str | float | Decimal) -> Decimal:
@@ -25,7 +26,7 @@ def _money(value: str | float | Decimal) -> Decimal:
         amount = Decimal(str(value))
     except InvalidOperation as error:
         raise ValueError("USD amounts must be valid decimal numbers.") from error
-    if not amount.is_finite() or amount < 0 or amount > Decimal("1000000000"):
+    if not amount.is_finite() or amount < 0 or amount > Decimal(1000000000):
         raise ValueError("USD amounts must be finite and between 0 and 1 billion.")
     if amount.as_tuple().exponent < -12:
         raise ValueError("USD amounts support at most 12 decimal places.")
@@ -47,14 +48,16 @@ def _connection():
                 cost_usd TEXT NOT NULL
             )
         """)
-        connection.execute("CREATE INDEX IF NOT EXISTS token_logs_timestamp ON token_logs(timestamp)")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS token_logs_timestamp ON token_logs(timestamp)"
+        )
         connection.commit()
         yield connection
     finally:
         connection.close()
 
 
-def _summary(connection, now: datetime) -> dict:
+def _summary(connection, now: datetime) -> BudgetSummary:
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
     rows = connection.execute(
@@ -67,9 +70,9 @@ def _summary(connection, now: datetime) -> dict:
     return {
         "date": start.date().isoformat(),
         "timezone": "UTC",
-        "spent_usd": str(spent),
-        "daily_budget_usd": str(limit),
-        "remaining_usd": str(max(limit - spent, Decimal(0))),
+        "spent_usd": format(spent, "f"),
+        "daily_budget_usd": format(limit, "f"),
+        "remaining_usd": format(max(limit - spent, Decimal(0)), "f"),
         "budget_exceeded": spent > limit,
         "budget_exhausted": spent >= limit,
         "task_count": len(rows),
@@ -78,15 +81,19 @@ def _summary(connection, now: datetime) -> dict:
     }
 
 
-def get_budget_summary() -> dict:
+def get_budget_summary() -> BudgetSummary:
     """Read today's recorded usage; monetary fields are decimal USD strings."""
     with _connection() as connection:
         return _summary(connection, _utc_now())
 
 
 def record_task_usage(
-    agent_role: str, model: str, input_tokens: int, output_tokens: int, cost_usd: str,
-) -> dict:
+    agent_role: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cost_usd: str,
+) -> UsageLogResult:
     """Record incurred cost exactly once per invocation, even above the budget.
 
     No retry deduplication is provided: retrying a successful/erroring call can
@@ -107,10 +114,19 @@ def record_task_usage(
             "INSERT INTO token_logs "
             "(timestamp, agent_role, model, input_tokens, output_tokens, cost_usd) "
             "VALUES (?, ?, ?, ?, ?, ?)",
-            (now.isoformat(), agent_role.strip(), model.strip(), input_tokens, output_tokens, str(cost)),
+            (
+                now.isoformat(),
+                agent_role.strip(),
+                model.strip(),
+                input_tokens,
+                output_tokens,
+                str(cost),
+            ),
         )
-        summary = _summary(connection, now)
-        summary["log_id"] = cursor.lastrowid
+        summary: UsageLogResult = {
+            **_summary(connection, now),
+            "log_id": cursor.lastrowid,
+        }
         connection.commit()
     if summary["budget_exceeded"]:
         raise BudgetExceededError(

@@ -5,11 +5,13 @@ import sqlite3
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 from mcp.server.mcpserver import MCPServer
+
 from my_mcp_agent import ledger
 from my_mcp_agent.resources.telemetry import register_telemetry_resources
 from my_mcp_agent.tools.budget import log_task_usage, register_budget_tools
@@ -35,7 +37,7 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(result['input_tokens'], 110)
         self.assertEqual(result['output_tokens'], 25)
         self.assertEqual(result['task_count'], 2)
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM token_logs').fetchone()[0], 2)
 
     def test_boundary_and_exceeded_cost_is_retained(self):

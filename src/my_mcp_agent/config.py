@@ -50,6 +50,7 @@ BLOCKED_WRITE_PATTERNS: tuple[str, ...] = BLOCKED_READ_PATTERNS
 
 DAILY_BUDGET_USD: float = 5.00
 MAX_FILE_READ_BYTES: int = 1_000_000
+MAX_FILE_WRITE_BYTES: int = 1_000_000
 LEDGER_DB_PATH: Path = PROJECT_ROOT / "studio_ledger.db"
 
 # Phase 3 execution is Linux/Bubblewrap only and fails closed if unavailable.
