@@ -1,0 +1,14 @@
+{
+  "protocol": "chat_completions",
+  "model": "REPLACE_WITH_PROVIDER_MODEL",
+  "endpoint": "https://YOUR_PROVIDER.example/v1/chat/completions",
+  "api_key_env": "STUDIO_MODEL_API_KEY",
+  "supports_tools": true,
+  "input_usd_per_million": "REPLACE_WITH_ACTUAL_RATE",
+  "output_usd_per_million": "REPLACE_WITH_ACTUAL_RATE",
+  "reservation_usd": "REPLACE_WITH_PER_REQUEST_ALLOWANCE",
+  "completion_token_parameter": "max_completion_tokens",
+  "max_output_tokens": 2048,
+  "max_input_bytes": 128000,
+  "timeout_seconds": 60
+}

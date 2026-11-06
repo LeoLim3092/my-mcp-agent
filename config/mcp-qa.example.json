@@ -1,0 +1,6 @@
+{
+  "command": "uv",
+  "args": ["--directory", "/home/leolim/repo/my-mcp-agent", "run", "python", "-m", "my_mcp_agent.server", "--role", "qa"],
+  "cwd": "/home/leolim/repo/my-mcp-agent",
+  "request_timeout_seconds": 45
+}

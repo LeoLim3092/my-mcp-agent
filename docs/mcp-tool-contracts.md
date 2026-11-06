@@ -52,7 +52,7 @@ outputs against their advertised schemas.
 | `list_directory` | `{ "result": ["file.txt", "assets/"] }` |
 | `run_linter`, `run_tests` | `exit_code`, `timed_out`, `stdout`, `stderr`, `output_truncated`, `passed` |
 | `run_blender_script` | `exit_code`, `timed_out`, `stdout`, `stderr`, `output_truncated`, `exports` |
-| `log_task_usage` | `date`, `timezone`, `spent_usd`, `daily_budget_usd`, `remaining_usd`, `budget_exceeded`, `budget_exhausted`, `task_count`, `input_tokens`, `output_tokens`, `log_id` |
+| `log_task_usage` | `date`, `timezone`, `spent_usd`, `daily_budget_usd`, `remaining_usd`, `budget_exceeded`, `budget_exhausted`, `reserved_usd`, `available_usd`, `task_count`, `input_tokens`, `output_tokens`, `log_id` |
 
 In the installed Python SDK, read `response.structured_content` for successful
 data and `response.is_error` for tool failure. Text content is also retained for
@@ -130,5 +130,6 @@ are synchronous; the current registration error wrapper is for synchronous funct
 Ten contract tests exercise schema validity for all tools, MCP initialization and
 client calls over in-memory transport, structured results, strict input rejection,
 saved over-budget warnings, generic crash handling, malformed-output rejection,
-and multibyte write limits. The full suite has 58 tests. In-memory client/server
-sessions are now covered; production stdio and Inspector checks remain pending.
+and multibyte write limits. The contract revision added ten tests; see `todo.md`
+for the current total. In-memory and actual stdio sessions are now covered by the
+Phase 4 tests; selected desktop/Inspector acceptance remains pending.

@@ -37,6 +37,7 @@ def _money(value: str | float | Decimal) -> Decimal:
 def _connection():
     connection = sqlite3.connect(LEDGER_DB_PATH, timeout=10)
     try:
+        connection.execute("BEGIN IMMEDIATE")
         connection.execute("""
             CREATE TABLE IF NOT EXISTS token_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,12 +46,38 @@ def _connection():
                 model TEXT NOT NULL,
                 input_tokens INTEGER NOT NULL CHECK(input_tokens >= 0),
                 output_tokens INTEGER NOT NULL CHECK(output_tokens >= 0),
-                cost_usd TEXT NOT NULL
+                cost_usd TEXT NOT NULL,
+                request_id TEXT
             )
         """)
         connection.execute(
             "CREATE INDEX IF NOT EXISTS token_logs_timestamp ON token_logs(timestamp)"
         )
+        if "request_id" not in {
+            row[1] for row in connection.execute("PRAGMA table_info(token_logs)")
+        }:
+            connection.execute("ALTER TABLE token_logs ADD COLUMN request_id TEXT")
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS token_logs_request ON token_logs(request_id)"
+        )
+        connection.execute("""CREATE TABLE IF NOT EXISTS model_reservations (
+            request_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, timestamp TEXT NOT NULL,
+            agent_role TEXT NOT NULL, model TEXT NOT NULL, amount_usd TEXT NOT NULL,
+            fingerprint TEXT NOT NULL, state TEXT NOT NULL,
+            input_tokens INTEGER, output_tokens INTEGER, cost_usd TEXT, log_id INTEGER
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS task_runs (
+            task_id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, agent_role TEXT NOT NULL,
+            model TEXT NOT NULL, state TEXT NOT NULL, reason TEXT NOT NULL DEFAULT ''
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS audit_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL, event TEXT NOT NULL, metadata TEXT NOT NULL
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS tool_invocations (
+            task_id TEXT NOT NULL, call_id TEXT NOT NULL, tool_name TEXT NOT NULL,
+            state TEXT NOT NULL, PRIMARY KEY(task_id, call_id)
+        )""")
         connection.commit()
         yield connection
     finally:
@@ -67,12 +94,24 @@ def _summary(connection, now: datetime) -> BudgetSummary:
     ).fetchall()
     spent = sum((Decimal(row[2]) for row in rows), Decimal(0))
     limit = _money(DAILY_BUDGET_USD)
+    # Unresolved requests carry forward until reconciled, including across UTC days.
+    reserved = sum(
+        (
+            Decimal(row[0])
+            for row in connection.execute(
+                "SELECT amount_usd FROM model_reservations WHERE state IN ('reserved','inflight','uncertain')"
+            )
+        ),
+        Decimal(0),
+    )
     return {
         "date": start.date().isoformat(),
         "timezone": "UTC",
         "spent_usd": format(spent, "f"),
         "daily_budget_usd": format(limit, "f"),
         "remaining_usd": format(max(limit - spent, Decimal(0)), "f"),
+        "reserved_usd": format(reserved, "f"),
+        "available_usd": format(max(limit - spent - reserved, Decimal(0)), "f"),
         "budget_exceeded": spent > limit,
         "budget_exhausted": spent >= limit,
         "task_count": len(rows),

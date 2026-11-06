@@ -123,17 +123,36 @@ Revision checkpoint: fixes from Leo's foundation review, recorded before startin
 - [x] Document contracts in `docs/mcp-tool-contracts.md`; add ten contract tests, bringing the full suite to 58 tests.
 - [ ] Validate production stdio/desktop/Inspector during Phase 4.1; retain pending budget retry/idempotency work.
 
-## Phase 4: Multi-Agent Studio Orchestration (The Client Layer)
-*Goal: Connect the MCP server toolbox to role-based AI personas.*
+## Phase 4: Provider-Neutral Agent Orchestration (The Client Layer)
+*Goal: Connect the MCP toolbox to role-based agents using compatible hosted or local models, without coupling roles or the server to one provider.*
 
-- [ ] **1. Connect to Claude Desktop (Manual Game Director Mode)**
-  - [ ] Add WSL `uv run` command to Windows `claude_desktop_config.json` [INTEGRITY] [CONDITIONAL PRIVACY]:
-    `wsl.exe uv --directory /home/leolim/repo/my-mcp-agent run mcp run src/my_mcp_agent/server.py`
-  - [ ] Test directing Claude to read `studio://memory/architecture` and scaffold a game feature.
-- [ ] **2. Define Agent Role Profiles (`roles/` [INTEGRITY] directory)**
-  - [ ] **Game Writer (`writer.yaml` [INTEGRITY] [CONDITIONAL PRIVACY]):** Prompt + allowed tools (`read_file`, `write_file`, `fetch_web_docs`).
-  - [ ] **Lead Programmer (`programmer.yaml` [INTEGRITY] [CONDITIONAL PRIVACY]):** Prompt + allowed tools (`read_file`, `write_file`, `patch_file`, `run_linter`, `run_tests`, `git_checkpoint`).
-  - [ ] **3D Technical Artist (`artist.yaml` [INTEGRITY] [CONDITIONAL PRIVACY]):** Prompt + allowed tools (`read_file`, `run_blender_script`).
-  - [ ] **QA Tester (`qa.yaml` [INTEGRITY] [CONDITIONAL PRIVACY]):** Prompt + allowed tools (`read_file`, `git_diff`, `run_linter`, `run_tests`).
-- [ ] **3. Build the Custom Python Orchestrator Loop**
-  - [ ] Write an MCP client script [CRITICAL INTEGRITY] [CRITICAL PRIVILEGE] that loads a role profile, checks `studio://telemetry/budget` pre-flight, executes the task via LLM + MCP tools, and records cost via `log_task_usage`.
+- [ ] **1. Connect Any Compatible MCP Host (Manual Game Director Mode)**
+  - [x] Add `client.py` [HIGH PRIVILEGE] with provider-independent stdio launch settings, MCP initialization, discovery, ping, and optional resource diagnostics. No LLM calls or provider keys required.
+  - [x] Add trusted `config/mcp-server.example.json` [INTEGRITY] and native Linux/Windows-to-WSL host configuration examples in `docs/phase4-provider-neutral.md`.
+  - [x] Verify the real server over stdio with temporary workspace/ledger settings: all tools/resources, live hardware/budget JSON, memory, and clean restarts.
+  - [ ] Connect the user's chosen MCP host and compatible model; Claude Desktop is an optional example, not a requirement. Verify architecture-memory access and a supervised game-file task.
+  - [ ] Complete pending manual Inspector checks. Automated stdio tests do not replace desktop/UI validation.
+- [x] **2. Define Provider-Neutral Agent Roles and Enforce Permissions**
+  - [x] Create trusted `roles/` [INTEGRITY] profiles (`writer.yaml`, `programmer.yaml`, `artist.yaml`, `qa.yaml`) [INTEGRITY] [CONDITIONAL PRIVACY]: prompts, allowed tools/resources, and step limits.
+  - [x] Keep role permissions separate from model/provider assignments and credentials.
+  - [x] Implement trusted dispatcher authorization for every tool/resource call; reject forged/disallowed calls even when not advertised to the model.
+  - [x] Keep usage logging and process launch configuration under trusted orchestrator control rather than model-selected arguments.
+  - [x] Bind roles at server launch with `--role`; expose only allowed capabilities and enforce per-process tool/resource call limits even for raw MCP clients.
+  - [x] Load immutable safe-YAML profiles within code-level permission ceilings; reject linked profiles, unknown settings, role injection, and accounting access.
+  - [x] Add nine loader/dispatcher tests and two real-stdio tests; document trusted/operator versus role-scoped connections in `docs/phase4-roles.md`.
+  - `max_steps` and role-prompt forwarding are enforced by the Phase 4.3 loop; tool/resource limits also remain enforced at the dispatcher/server boundaries.
+- [x] **3. Build Provider Adapters and the Custom Orchestrator Loop**
+  - [x] Define a model adapter interface for messages, schemas, tool calls/results, capabilities, and usage; reject unsupported models explicitly.
+  - [x] Add configurable hosted/local provider adapters as needed, with endpoint/model/credential settings outside roles and outside agent-writable files. No single vendor/model is mandatory.
+  - [x] Add bounded task loops, error handling, review/revision decisions, and audit records without secrets.
+  - [x] Check/reserve budget before each model call; settle actual usage with idempotent logging and recovery for uncertain outcomes.
+  - [x] Use the same MCP tools and role policies when switching model adapters; test adapters with fake responses before live provider calls.
+  - [x] Add `accounting.py` [CRITICAL INTEGRITY] [PRIVACY] for serialized reservations, idempotent settlement, durable task/tool identities, audit metadata, and explicit reconciliation. Preserve legacy ledger records.
+  - [x] Add an offline ping-only demo and task-status CLI in `orchestrator.py` [CRITICAL PRIVILEGE]; real final answers default to `needs_review`, with injectable review/revision decisions.
+  - [x] Test both provider protocols with mocked HTTP and real scoped MCP processes, including cancellation and unknown side effects. Document operations/recovery in `docs/phase4-orchestrator.md`.
+- [ ] **4. Phase 4 Milestone Validation**
+  - [x] Test role permissions, forged calls, resource policy, step limits, provider capability errors, budget reservations, idempotent settlement, and conservative crash/restart handling with temporary state.
+  - [x] Complete an offline CLI demo and end-to-end mock-provider tasks over real role-scoped stdio; verify the same roles/tools work with both implemented protocol adapters.
+  - [ ] Complete a supervised end-to-end task with the selected host/model and record provider-specific limitations. Validate another configured model/adapter before claiming interchangeable provider support.
+
+Model independence means compatible hosts/adapters can reuse the toolbox. It does not mean every raw LLM API or every model supports MCP/tool calling automatically.

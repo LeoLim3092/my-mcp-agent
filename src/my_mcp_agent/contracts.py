@@ -99,6 +99,8 @@ class BudgetSummary(TypedDict):
     spent_usd: str
     daily_budget_usd: str
     remaining_usd: str
+    reserved_usd: str
+    available_usd: str
     budget_exceeded: bool
     budget_exhausted: bool
     task_count: int

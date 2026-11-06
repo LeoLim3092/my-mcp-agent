@@ -1,0 +1,13 @@
+{
+  "protocol": "ollama",
+  "model": "REPLACE_WITH_INSTALLED_TOOL_CAPABLE_MODEL",
+  "endpoint": "http://127.0.0.1:11434/api/chat",
+  "api_key_env": null,
+  "supports_tools": true,
+  "input_usd_per_million": "0",
+  "output_usd_per_million": "0",
+  "reservation_usd": "0",
+  "max_output_tokens": 2048,
+  "max_input_bytes": 128000,
+  "timeout_seconds": 60
+}

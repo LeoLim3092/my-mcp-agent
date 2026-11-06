@@ -29,9 +29,9 @@ and Git operations need separate concurrency protection.
 
 ## Existing automated checks
 
-The current suite has 58 tests: six filesystem tests, six Git tests, six budget
+The current suite has 100 tests: six filesystem tests, six Git tests, six budget
 tests, four telemetry tests, one Phase 1 milestone, one Phase 2 milestone,
-eighteen Phase 3 tests, six workspace I/O regression tests, and ten MCP contract tests. Tests cover direct
+eighteen Phase 3 tests, six workspace I/O regression tests, ten MCP contract tests, six stdio connection tests, ten role/dispatcher tests, two role-scoped stdio tests, seven accounting tests, five provider tests, eleven task-loop tests, and one offline CLI test. Tests cover direct
 functions, MCP dispatch, isolated QA/Blender execution, and the review fixes.
 
 Run the full suite:
@@ -46,15 +46,16 @@ Run only Git tests:
 .venv/bin/python -m unittest discover -s tests -p 'test_git_ops.py' -v
 ```
 
-Tests exercise direct functions, real MCP tool/resource dispatch, and initialized
-client/server sessions over in-memory transport. Production stdio and Inspector
-UI checks remain pending.
+Tests exercise direct functions, real MCP tool/resource dispatch, initialized
+in-memory client/server sessions, and real stdio server subprocesses with temporary
+state. The user's selected desktop/launch configuration and Inspector UI remain pending.
 
 ## Phase 0 — Server startup and MCP integration
 
 - [ ] Recheck `uv run mcp dev src/my_mcp_agent/server.py` after the recent changes; Inspector connects and all implemented tools appear with correct arguments and descriptions.
-- [ ] Start through the production stdio command, `uv run mcp run src/my_mcp_agent/server.py`; a real MCP client initializes and can call `workspace_ping` without protocol errors.
-- [ ] Restart the server and verify registrations are not duplicated and existing workspace files remain unchanged.
+- [x] Verify actual server stdio initialization, `workspace_ping`, discovery, and resource reads using a real subprocess with temporary state (`tests/test_client.py`).
+- [ ] Validate the user's selected host/launch command on their actual deployment; automated subprocess tests do not configure a desktop application.
+- [x] Restart the actual stdio server and verify registrations are not duplicated and existing workspace files remain unchanged (`tests/test_client.py`).
 - [ ] Add repeatable startup tests: importing `config.py` and `security.py` creates no directories; server initialization creates a missing workspace and rejects overlapping project/workspace trees.
 - [ ] Verify a missing/unwritable workspace produces a clear startup error without modifying an unintended location.
 
@@ -118,9 +119,10 @@ Automated hardware tests: `.venv/bin/python -m unittest discover -s tests -p 'te
 
 - [ ] In MCP Inspector, log fake usage against a disposable ledger and read `studio://telemetry/budget`; confirm exact decimal strings and token totals.
 - [ ] Through MCP, test invalid token/cost inputs and over-budget errors. Verify over-budget usage persists and never retry the same recorded call.
-- [ ] Add idempotency keys before introducing automatic logging retries; current repeated calls create repeated records.
+- [x] Add durable request IDs and idempotent settlement for the orchestrator; keep uncertain provider calls held and avoid automatic request retries.
+- [ ] Extend raw operator `log_task_usage` with idempotency if that separate API will be retried automatically; it currently remains non-idempotent.
 - [ ] Verify database lock timeout, disk-full/unwritable errors, recovery, backup permissions, and migration strategy before storing important usage history.
-- [ ] Enforce trusted usage reporting and pre-call budget reservations in the orchestrator; the current post-task logger cannot stop costs already incurred or verify caller-supplied cost.
+- [x] Add orchestrator pre-call reservations and trusted provider-usage settlement; model roles cannot access accounting. Cost calculation uses operator rates, not model-authored prices. Raw post-task logging remains operator-only and does not itself gate calls.
 - [ ] Confirm UTC budget days are the intended policy; add a configurable timezone only if local-day reporting is required.
 
 Budget tests: `.venv/bin/python -m unittest discover -s tests -p 'test_budget.py' -v`. Six tests cover persisted/exact totals, limit boundaries, invalid inputs, UTC rollover, concurrent writes, JSON resource output, and registration. Runtime `studio_ledger.db*` files are excluded from Git.
@@ -170,3 +172,54 @@ Phase 4 and in the associated revision commit.
 - [x] Add ten contract tests; full suite has 58 passing tests. See [MCP tool contracts](docs/mcp-tool-contracts.md).
 - [ ] Complete production stdio/desktop/Inspector checks; in-memory protocol coverage does not validate those deployment paths.
 - [ ] Add logging idempotency before safe automatic retries; an error flag does not imply side effects were rolled back.
+
+## Phase 4.1 — Provider-neutral connection
+
+- [x] Add provider-independent stdio client/diagnostics and trusted example connection settings.
+- [x] Exercise the actual server subprocess with temporary state: MCP initialization, tools/resources, live telemetry/budget, memory, and restart preservation.
+- [x] Document native/WSL host examples and the separation of MCP connections, roles, model assignments, and future provider adapters in [Phase 4 provider-neutral setup](docs/phase4-provider-neutral.md).
+- [ ] Choose and connect the user's preferred host/model; desktop/Inspector UI checks remain pending.
+- [ ] Implement Phase 4.2 role authorization and Phase 4.3 provider adapters/orchestration. The diagnostic client has no role policy or LLM integration yet.
+
+Connection tests: `.venv/bin/python -m unittest discover -s tests -p 'test_client.py' -v`.
+
+Phase 4.1 validation record: all five connection tests passed. The full suite has 63 tests; no model provider was called, and desktop/Inspector validation is still pending.
+
+## Phase 4.2 — Roles and authorization
+
+- [x] Add immutable provider-neutral writer/programmer/artist/QA YAML profiles with safe named loading, permission ceilings, and bounded call settings.
+- [x] Enforce every model tool/resource request in a trusted dispatcher, including forged names, resource traversal, and attempted role changes in arguments.
+- [x] Add role-scoped server launch and registration, so raw MCP calls cannot bypass permissions or server-process call limits.
+- [x] Keep usage logging, budget resources, role selection, and process launch outside all model role capabilities.
+- [x] Add nine role/dispatcher tests and two real-stdio role tests, with temporary state and no provider calls. See [role setup](docs/phase4-roles.md).
+- [x] Implement the Phase 4.3 provider adapters, model-turn limit, task loop, budget reservations/idempotent settlement, metadata audit records, and review/revision hook.
+- [ ] Manually connect the chosen host with a scoped launch command. An unscoped desktop connection retains operator capabilities; prompts alone do not restrict it.
+
+Phase 4.2 validation record: all 74 tests passed, including actual stdio role enforcement and existing isolated Blender regressions. New/changed Phase 4 modules and tests passed Ruff. Manual host/model testing remains deferred until Phase 4 is complete, as requested.
+
+## Phase 4.3 — Task loop and accounting complete; live-model acceptance pending
+
+- [x] Implement nonstreaming Chat Completions-compatible and native Ollama adapters with explicit model/endpoint/rates/tool capability, no implicit provider choice, no HTTP retries/redirects, bounded context/output, and strict usage handling.
+- [x] Verify exact role-scoped server capabilities, enforce model turns and tool/resource allowances, and expose approved resources only through checked calls.
+- [x] Reserve budget atomically before requests, settle known usage idempotently, retain uncertain holds across UTC days, and stop on cost/reservation overruns.
+- [x] Add durable task IDs and hashed tool-call claims; forbid silent task/request/tool replay. Provide status inspection and explicit operator settlement/release APIs.
+- [x] Preserve old ledger rows during schema migration and expose reserved/available budget amounts.
+- [x] Add metadata-only audit events and review/revision decisions. Default real tasks to `needs_review`; the offline ping demo has a demo-only approval callback.
+- [x] Test seven accounting cases, five provider cases, eleven real-MCP task-loop cases, and one offline CLI/status case, plus server-scope matching. Combined suite: 100 tests.
+- [ ] Choose an actual provider/model, fill accurate rates and credentials, and validate a supervised live task. No paid/model-service request was made during automated validation.
+- [ ] Complete the selected desktop/Inspector acceptance checks. Manual pipeline testing remains deferred at the user's request until implementation is ready.
+- [ ] Add more protocol adapters or provider-specific billing (cache tiers/extra fees) only when needed; current cost calculation is a configured token-rate estimate, not an invoice guarantee.
+- [ ] Add full conversation restoration/resume only with explicit treatment of uncertain side effects; current recovery deliberately inspects/reconciles without automatic replay.
+- [ ] Add actual visual/game-engine review tooling or a separately budget-controlled reviewer agent as needed; the current review callback is an integration boundary, not an automatic quality guarantee.
+
+Guide: [Phase 4 task execution and recovery](docs/phase4-orchestrator.md).
+Offline command: `.venv/bin/python -m my_mcp_agent.orchestrator --demo --role qa`.
+
+Phase 4 review follow-up: inspect execution `passed`, exit-code, and timeout fields independently of MCP transport success; include failed operation names in review evidence. The offline demo approves only a successful ping, not an error response.
+
+Phase 4 integration review: raise the default MCP request timeout to 45 seconds (above the 30-second execution timeout) and test that relationship. This prevents an otherwise valid long-running QA/Blender command from timing out first at the client.
+
+Phase 4.3 final validation (2026-11-05): full 100-test suite passed with no skips;
+Ruff passed for changed modules/new tests. No paid provider calls and no real game
+file modifications occurred. The tool/resource format regression discovered during
+review was corrected and covered by the approved-resource pipeline test.
